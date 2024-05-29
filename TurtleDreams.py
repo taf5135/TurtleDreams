@@ -3,6 +3,7 @@ import hashlib
 import turtle as t
 
 import random
+import time
 
 SPECIAL_INPUTS = ["charlie", "caasi", "relic", "zem", "mara", "andy", "kyle", "miles", "sam", "tesoro"] #author added by popular demand
 PROMPT_LIST = ["What's on your mind?", "What do you dream about?", "What was your first memory?", "Are you looking for something?", "Who are you?", "What's your question?"]
@@ -97,6 +98,7 @@ def main():
     parser.add_argument("--speed", "-s", help="Drawing speeed of the turtle. -1 for instant image generation", type=int, default=6)
     parser.add_argument("--scale", "-c", help="Scale factor for the drawing. Line length = default size/scale factor. Default 1", type=int, default=1)
     parser.add_argument("--depth", "-d", help="Maximum recursion depth", type=int, default=5)
+    parser.add_argument("--fishbowl", "-f", help="Fishbowl mode. On completion of a drawing, compute the next hash and start again", action="store_true")
 
     args = parser.parse_args()
     
@@ -104,30 +106,43 @@ def main():
     print(random.choice(PROMPT_LIST)) 
     user_input = input()
 
+    if user_input.lower() in SPECIAL_INPUTS:
+        print("I love you")
+
+
     hasher = hashlib.sha256()
     hasher.update(user_input.encode('utf-8'))
 
     digest = hasher.digest()
 
     #on initialize: set turtle color to the first 3 bytes of the hash
-    t.colormode(255)
-    t.color((digest[0], digest[1], digest[2]))
-    if args.speed == -1:
-        t.tracer(0, 0)
-    else:
-        t.speed(min(10, max(0, args.speed))) #enforce bounds
+    firstrun = True
+    while firstrun or args.fishbowl:
+        t.colormode(255)
+        t.color((digest[0], digest[1], digest[2]))
+        if args.speed == -1:
+            t.tracer(0, 0)
+        else:
+            t.speed(min(10, max(0, args.speed))) #enforce bounds
 
+        inst = create_instructions(digest)
+        draw_recurse(inst, args.scale, args.depth)
+        
+        t.update()
+        time.sleep(5)
 
-    if user_input.lower() in SPECIAL_INPUTS:
-        print("I love you")
-
-
-    inst = create_instructions(digest)
-    draw_recurse(inst, args.scale, args.depth)
-    
-    t.update()
+        next_seed = str(time.time()).encode('utf-8')
+        hasher.update(next_seed)
+        digest = hasher.digest()
+        print(next_seed.decode('utf-8'))
+        t.reset()
+        
     t.exitonclick()
 
     return 0
 
-main()
+if __name__ == "__main__":
+    try:
+        main()
+    except t.Terminator:
+        pass
