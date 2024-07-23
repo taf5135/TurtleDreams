@@ -118,6 +118,8 @@ def main():
     #on initialize: set turtle color to the first 3 bytes of the hash
     firstrun = True
     while firstrun or args.fishbowl:
+        firstrun = False
+
         t.colormode(255)
         t.color((digest[0], digest[1], digest[2]))
         if args.speed == -1:
