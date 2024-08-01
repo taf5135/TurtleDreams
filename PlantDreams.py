@@ -18,6 +18,15 @@ import turtle as t
 #"stack" behavior can be implemented as well (saving the current turtle state and returning to it later)
 #basically the stuff from https://paulbourke.net/fractals/lsys/ but with no polygons (yet?)
 
+#How will we do the randomization?
+#One option: pre-build rules that work together, then use the hash to define what gets rewritten to what
+#Option two: Have the hash build the rewriting rules, and then also have it define the mapping. This could be done as a next step to the first option
+#In order build a single rule, we could use a stack machine to decide what symbol will be written next. This allows us some fine tuning to make "good" patterns
+# more likely, such as making sure "+-" doesn't appear. It could also prevent "[[" from appearing. We will need extra logic to make sure that any "[" has a corresponding "]",
+# and vice versa
+# https://cs.rit.edu/~tjb/fsm.html has a good DFA maker that we can use to complete the steps
+
+#For a full feature set of 13 possible actions, we will need to allocate ~4 bits to each character. 
 #
 """
 Library of actions:
@@ -40,6 +49,10 @@ Ones below here are secondary features, to be implemented at your convenience:
 
 BASE_LENGTH = 10
 BASE_ANGLE = 30
+
+LENGTH_SCALE_FACTOR = 1
+ANGLE_INCREMENT = 0
+WIDTH_INCREMENT = 0
 
 class LSystem():
     def __init__(self, mapping : dict, seed : str, scale : float) -> None:
@@ -77,8 +90,6 @@ class LSystem():
                 t.setheading(head)
                 t.goto(pos)
                 t.pendown()
-            elif char == '@': #just draws a white dot for now
-                pass
             else:
                 t.forward(BASE_LENGTH/self.scale)
 
@@ -129,7 +140,7 @@ if __name__ == '__main__':
         t.tracer(0, 0)
         t.speed("fastest")
     else:
-        t.speed(t.speed(min(10, max(0, args.speed))))
+        t.speed(min(10, max(0, args.speed)))
 
     screen = t.Screen()
     screen.bgcolor(0.9, 0.83, 0.7) #TODO change these, theyre just copied from computerphile
