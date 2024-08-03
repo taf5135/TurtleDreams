@@ -133,6 +133,14 @@ def speed_down():
     t.tracer(1, 25)
     t.speed(given_speed)
 
+def zoom_in():
+    width, height = win.screensize()
+    win.screensize(width / 1.5, height / 1.5)
+
+def zoom_out():
+    width, height = win.screensize()
+    win.screensize(width * 1.5, height * 1.5)
+
 def main(scale, depth, win : t._Screen):
     test_mapping = {
          'X' : 'XX'
@@ -159,6 +167,8 @@ def main(scale, depth, win : t._Screen):
     win.onkey(l2.reset_and_advance, "Return")
     win.onkey(speed_up, "Up")
     win.onkey(speed_down, "Down")
+    win.onkey(zoom_in, "-")
+    win.onkey(zoom_out, "+")
     
 
     t.left(90) #grow upwards
@@ -193,6 +203,6 @@ if __name__ == '__main__':
             t.speed(given_speed)
     
         main(args.scale, args.depth, win)
-        
+
     except t.Terminator:
         pass #Don't show error if user closes window prematurely
