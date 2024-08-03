@@ -26,6 +26,16 @@ import turtle as t
 # and vice versa
 # https://cs.rit.edu/~tjb/fsm.html has a good DFA maker that we can use to complete the steps
 
+#How many rules should be possible? 2-7 seems like a good range. That means there are, if we implement everything, 17 possible next characters inside a given mapping
+#We need to reduce this down to 16. By specifically crafting the pushdown machine to disallow certain transitions, we can force this number down
+#But we need to reduce it for every possible character, which is difficult.
+
+#Let's cut out the multiply and divide instructions, since theyre kind of boring and probably won't lead to interesting phenomena
+#We also make sure that after any non-letter operation, we disallow its negation. So - cant follow +, ] cant follow [, etc. This gets us down to 16 transitions for each
+#state, except for the letters. TODO figure out the problem for the letters
+
+#The 32 bytes: first 3 bits control the number of chars. The next 5 bits control the flower color. The remaining 62 nibbles are processed by the pushdown automata
+
 #For a full feature set of 13 possible actions, we will need to allocate ~4 bits to each character. 
 #
 """
@@ -40,8 +50,6 @@ Ones below here are secondary features, to be implemented at your convenience:
    #	         Increment the line width by line width increment
    !	         Decrement the line width by line width increment
    @	         Draw a dot with line width radius
-   >	         Multiply the line length by the line length scale factor
-   <	         Divide the line length by the line length scale factor
    &	         Swap the meaning of + and -
    (	         Decrement turning angle by turning angle increment
    )	         Increment turning angle by turning angle increment
@@ -49,10 +57,12 @@ Ones below here are secondary features, to be implemented at your convenience:
 
 BASE_LENGTH = 10
 BASE_ANGLE = 30
+BASE_FLOWER_RAD = 2
 
-LENGTH_SCALE_FACTOR = 1
 ANGLE_INCREMENT = 0
 WIDTH_INCREMENT = 0
+
+given_speed = 6
 
 class LSystem():
     def __init__(self, mapping : dict, seed : str, scale : float) -> None:
@@ -86,15 +96,44 @@ class LSystem():
                 stack.append((t.heading(), t.pos()))
             elif char == ']':
                 t.penup()
-                head, pos = stack.pop()
+                head, pos = stack.pop() #If we add angle inc/dec, width inc/dec, flower color, or &, then we need to update the stack construction
                 t.setheading(head)
                 t.goto(pos)
                 t.pendown()
+            elif char == '@':
+                t.color(1,1,1) #TODO change these colors, dont bother using floats
+                t.begin_fill()
+                t.circle(BASE_FLOWER_RAD)
+                t.end_fill()
+                t.color(0.3, 0.5, 0.2)
             else:
                 t.forward(BASE_LENGTH/self.scale)
 
+    def reset_and_advance(self):
+        t.goto(0,0)
+        t.clear() 
+        t.setheading(90)
+        self.get_next_state()
+        self.draw_state()
 
-def main(scale, depth):
+
+def pushdown_parser_5op(digest):
+    #Runs a pushdown automata for plants with only F, +, -, [, and ] operations (F is 2 to 7 different characters)
+    pass
+
+
+def pushdown_parser_full(digest):
+    pass
+
+def speed_up():
+    t.speed("fastest")
+    t.tracer(0,0)
+
+def speed_down():
+    t.tracer(1, 25)
+    t.speed(given_speed)
+
+def main(scale, depth, win : t._Screen):
     test_mapping = {
          'X' : 'XX'
         ,'Y' : 'X[-Y][+Y]'
@@ -102,29 +141,32 @@ def main(scale, depth):
     test_seed = 'Y'
 
     special_test_mapping = {
-         'F' : 'XY[++G][--G][G]' #once @ is implemented, insert it after each of F and G
-        ,'G' : 'XX[++G][--G][G]'
+         'F' : 'XY[++G][--G][G]' 
+        ,'G' : 'XX[++G@][--G@][G@]'
         ,'X' : 'XX'
         ,'Y' : 'YZ'
         ,'Z' : '[++++L][----L]X'
         ,'L' : 'MM[+++L][---L]L'
         ,'M' : 'MMM'
+        ,'@' : ''
     }
     special_seed = 'F'
 
-    t.left(90) #grow upwards
 
     l1 = LSystem(test_mapping, test_seed, 1)
+    l2 = LSystem(special_test_mapping, special_seed, 1)
 
-    for i in range(5):
-        print(l1.get_next_state())
-        
-        
-    l1.draw_state() #TODO resize the screen to accomodate the size and scale of the graph
-    t.exitonclick()
+    win.onkey(l2.reset_and_advance, "Return")
+    win.onkey(speed_up, "Up")
+    win.onkey(speed_down, "Down")
+    
 
+    t.left(90) #grow upwards
+    win.screensize(3000, 2000) #TODO resize the screen to accomodate the size and scale of the graph. These are good dimensions for special_test with depth 5. Add more on each click
 
-    #l2 = LSystem(special_test_mapping, special_seed)
+    win.listen()
+    win.mainloop()
+
 
 
 if __name__ == '__main__':
@@ -136,17 +178,21 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if args.speed == -1:
-        t.tracer(0, 0)
-        t.speed("fastest")
-    else:
-        t.speed(min(10, max(0, args.speed)))
-
-    screen = t.Screen()
-    screen.bgcolor(0.9, 0.83, 0.7) #TODO change these, theyre just copied from computerphile
-    t.color(0.3, 0.5, 0.2)
-    
     try:
-        main(args.scale, args.depth)
+        win = t.Screen()
+        win.title("PlantDreams")
+        win.bgcolor(0.9, 0.83, 0.7) #TODO change these, theyre just copied from computerphile
+        win.screensize(3000, 2000)
+        t.color(0.3, 0.5, 0.2)
+
+        if args.speed == -1:
+            t.tracer(0, 0)
+            t.speed("fastest")
+        else:
+            given_speed = min(10, max(0, args.speed))
+            t.speed(given_speed)
+    
+        main(args.scale, args.depth, win)
+        
     except t.Terminator:
-        pass
+        pass #Don't show error if user closes window prematurely
