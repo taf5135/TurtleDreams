@@ -35,6 +35,8 @@ import turtle as t
 #state, except for the letters. TODO figure out the problem for the letters
 
 #The 32 bytes: first 3 bits control the number of chars. The next 5 bits control the flower color. The remaining 62 nibbles are processed by the pushdown automata
+#We allow for early stopping. 
+#Leftover nibbles define the seed. We remove all functional (non-letter) characters that are outside of square brackets
 
 #For a full feature set of 13 possible actions, we will need to allocate ~4 bits to each character. 
 #
@@ -61,6 +63,21 @@ BASE_FLOWER_RAD = 2
 
 ANGLE_INCREMENT = 0
 WIDTH_INCREMENT = 0
+
+RULE_CHARS = "ABCDEFG"
+STOP_CHAR = '~' #Force-stops the pushdown parser
+RULE_SIZE_MAX = 15
+
+COLORS = [
+    "A846A0", "7D4FFF", "8A71CE", "FF7FED", 
+    "FFB766", "FFD800", "FFE14F", "FF7A28",
+    "5EF1FF", "FFECEA", "FF877C", "7C87FF",
+    "FF5E5E", "FCFF54", "DACCFF", "8EC8FF",
+    "FFFFFF", "FF99A1", "FF3DAE", "D756FF",
+    "FF757E", "758EFF", "9F4CFF", "87FFFD",
+    "3D91FF", "2172FF", "FF26CC", "FF7FEB",
+    "EE9EFF", "FFC587", "F9D8FF", "FFF2CE"
+]
 
 given_speed = 6
 
@@ -117,13 +134,124 @@ class LSystem():
         self.draw_state()
 
 
-def pushdown_parser_5op(digest):
-    #Runs a pushdown automata for plants with only F, +, -, [, and ] operations (F is 2 to 7 different characters)
-    pass
+def pushdown_parser_6op(digest):
+    #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
+
+    #first 3 bits decide how many mapped characters there will be. Minimum 2, max 7
+    first = digest[0]
+    num_of_chars = (first>>5)&0x7
+    if num_of_chars < 2:
+        num_of_chars += 2
+
+    #next 5 bits decide the color of any flowers.
+    flower_color = COLORS[int(first & 0x1F)]
+    
+    #collate next 29 bytes into 58 nibbles, and partition them into num_of_chars different sections
+    #the last 2 bytes define the 4-character seed
+    #TODO limit rules to 12 characters and allow early stopping
+
+    rule_nibbles = bytes_to_nibbles(digest[1:30])
+    
+    partition_size = 58 // num_of_chars #TODO correct this static value if it isnt already
+
+    #represents a transition matrix
+    #since the stack is only relevant to one character, we can use this to simplify the code
+    
+
+    empty_stack_transitions = {
+         "A"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"B"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"C"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"D"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"E"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"F"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"G"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"+"    :   "ABCDEFG+A[#!@" + STOP_CHAR + "()"
+        ,"-"    :   "ABCDEFGB-[#!@" + STOP_CHAR + "()"
+        ,"]"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"@"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+
+    }
+
+    nonempty_transitions = {
+         "A":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"B":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"C":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"D":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"E":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"F":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"G":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"+":"ABCDEFG+A[#!@" + STOP_CHAR + "()"
+        ,"-":"ABCDEFGB-[#!@" + STOP_CHAR + "()"
+        ,"[":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"]":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+        ,"@":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+    }
+
+    available_chars = RULE_CHARS[:num_of_chars]
+
+    #rectify the transition rules by changing unavailable chars into their equivalents
+    empty_stack_transitions = rectify_transition(empty_stack_transitions, available_chars)
+    nonempty_transitions = rectify_transition(nonempty_transitions, available_chars)
+
+    stack = 0
+    rules = {}
+    state = 'A'
+    for idx, char in enumerate(available_chars):
+        rule = ""
+        for i in range(min(RULE_SIZE_MAX,partition_size)):
+            current_nibble = rule_nibbles[idx * partition_size + i]
+            if stack == 0:
+                next_char = empty_stack_transitions[state][current_nibble]
+            else:
+                next_char = nonempty_transitions[state][current_nibble]
+
+            if next_char == '[':
+                stack += 1
+            elif next_char == ']':
+                stack -= 1
+
+            if next_char == STOP_CHAR:
+                break
+
+            rule += next_char
+            state = next_char
+        
+        rule += ']' * stack #pop the rest of the stack
+        rules[char] = rule
+
+    #NOTE: When debugging, stack MUST be zero here
+
+    #remaining nibbles define the seed
+    #TODO this is kind of duplicated code
+    seed_nibbles = bytes_to_nibbles(digest[30:])
+    seed = "".join(available_chars[nib % num_of_chars] for nib in seed_nibbles) #TODO: this means all plants start as a long stick. Need something more complex
+
+    return rules, seed
 
 
 def pushdown_parser_full(digest):
     pass
+
+def bytes_to_nibbles(in_bytes):
+    n = []
+    for b in in_bytes:
+        n.append(int(b>>4 & 0xF))
+        n.append(int(b & 0xF))
+    return n
+
+def rectify_transition(tran, available_chars): #TODO maybe refactor this
+    for key in tran.keys():
+        rule = tran[key]
+        newrule = ""
+        for char in rule:
+            replacement = char
+            if char in RULE_CHARS and char not in available_chars:
+                replacement = available_chars[RULE_CHARS.index(char) % len(available_chars)] #maps rule chars to available chars based on their index mod num_of_chars
+            newrule += replacement
+        tran[key] = newrule
+
+    return tran
 
 def speed_up():
     t.speed("fastest")
@@ -172,7 +300,7 @@ def main(scale, depth, win : t._Screen):
     
 
     t.left(90) #grow upwards
-    win.screensize(3000, 2000) #TODO resize the screen to accomodate the size and scale of the graph. These are good dimensions for special_test with depth 5. Add more on each click
+    win.screensize(3000, 2000)
 
     win.listen()
     win.mainloop()
