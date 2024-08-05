@@ -65,28 +65,30 @@ ANGLE_INCREMENT = 0
 WIDTH_INCREMENT = 0
 
 RULE_CHARS = "ABCDEFG"
+START_CHAR = "." #Special character to signal we're in the start state
 STOP_CHAR = '~' #Force-stops the pushdown parser
 RULE_SIZE_MAX = 15
 
 COLORS = [
-    "A846A0", "7D4FFF", "8A71CE", "FF7FED", 
-    "FFB766", "FFD800", "FFE14F", "FF7A28",
-    "5EF1FF", "FFECEA", "FF877C", "7C87FF",
-    "FF5E5E", "FCFF54", "DACCFF", "8EC8FF",
-    "FFFFFF", "FF99A1", "FF3DAE", "D756FF",
-    "FF757E", "758EFF", "9F4CFF", "87FFFD",
-    "3D91FF", "2172FF", "FF26CC", "FF7FEB",
-    "EE9EFF", "FFC587", "F9D8FF", "FFF2CE"
+    "#A846A0", "#7D4FFF", "#8A71CE", "#FF7FED", 
+    "#FFB766", "#FFD800", "#FFE14F", "#FF7A28",
+    "#5EF1FF", "#FFECEA", "#FF877C", "#7C87FF",
+    "#FF5E5E", "#FCFF54", "#DACCFF", "#8EC8FF",
+    "#FFFFFF", "#FF99A1", "#FF3DAE", "#D756FF",
+    "#FF757E", "#758EFF", "#9F4CFF", "#87FFFD",
+    "#3D91FF", "#2172FF", "#FF26CC", "#FF7FEB",
+    "#EE9EFF", "#FFC587", "#F9D8FF", "#FFF2CE"
 ]
 
 given_speed = 6
 
 class LSystem():
-    def __init__(self, mapping : dict, seed : str, scale : float) -> None:
+    def __init__(self, mapping : dict, seed : str, scale : float, color : str = "#FFFFFF") -> None:
         self.mapping = mapping
         self.seed = seed
         self.state = seed
         self.scale = scale
+        self.color = color
 
     def get_next_state(self):
         #update the state. Both return it and update self.state
@@ -102,27 +104,30 @@ class LSystem():
         return nstate
     
     def draw_state(self):
+        swap_const = 1
         stack = []
         for char in self.state:
             if char == '+':
-                t.left(BASE_ANGLE)
+                t.left(BASE_ANGLE * swap_const)
             elif char == '-':
-                t.right(BASE_ANGLE)
+                t.right(BASE_ANGLE * swap_const)
             elif char == '[':
                 #needs to save position and direction on the stack
-                stack.append((t.heading(), t.pos()))
+                stack.append((t.heading(), t.pos(), swap_const))
             elif char == ']':
                 t.penup()
-                head, pos = stack.pop() #If we add angle inc/dec, width inc/dec, flower color, or &, then we need to update the stack construction
+                head, pos, swap_const = stack.pop() #If we add angle inc/dec, width inc/dec, flower color, or &, then we need to update the stack construction
                 t.setheading(head)
                 t.goto(pos)
                 t.pendown()
             elif char == '@':
-                t.color(1,1,1) #TODO change these colors, dont bother using floats
+                t.color(self.color) 
                 t.begin_fill()
                 t.circle(BASE_FLOWER_RAD)
                 t.end_fill()
-                t.color(0.3, 0.5, 0.2)
+                t.color(0.3, 0.5, 0.2) #TODO change these colors, dont bother using floats
+            elif char == '&':
+                swap_const = -swap_const
             else:
                 t.forward(BASE_LENGTH/self.scale)
 
@@ -134,6 +139,8 @@ class LSystem():
         self.draw_state()
 
 
+#TODO so far this produces a lot of filamentous, snaggly plants. How can we promote branching? 
+#TODO so far the plants tend to curl a lot in one direction, and spiral after only a few generations. How can we make them grow straight-ish? Will & work?
 def pushdown_parser_6op(digest):
     #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
 
@@ -148,44 +155,43 @@ def pushdown_parser_6op(digest):
     
     #collate next 29 bytes into 58 nibbles, and partition them into num_of_chars different sections
     #the last 2 bytes define the 4-character seed
-    #TODO limit rules to 12 characters and allow early stopping
-
     rule_nibbles = bytes_to_nibbles(digest[1:30])
     
-    partition_size = 58 // num_of_chars #TODO correct this static value if it isnt already
+    partition_size = 58 // num_of_chars
 
     #represents a transition matrix
     #since the stack is only relevant to one character, we can use this to simplify the code
+    #TODO may need to change this later if we want more complex behavior (e.g only writing ] if we have written a rule char)
     
-
     empty_stack_transitions = {
-         "A"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"B"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"C"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"D"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"E"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"F"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"G"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"+"    :   "ABCDEFG+A[#!@" + STOP_CHAR + "()"
-        ,"-"    :   "ABCDEFGB-[#!@" + STOP_CHAR + "()"
-        ,"]"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"@"    :   "ABCDEFG+-[#!@" + STOP_CHAR + "()"
+         "."    :   "ABCDEFGAB[CD@" + STOP_CHAR + "FG"
+        ,"A"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"B"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"C"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"D"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"E"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"F"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"G"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
+        ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
+        ,"]"    :   "ABCD[[[+-[+-@" + STOP_CHAR + "+-"
+        ,"@"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
 
     }
 
     nonempty_transitions = {
-         "A":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"B":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"C":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"D":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"E":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"F":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"G":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"+":"ABCDEFG+A[#!@" + STOP_CHAR + "()"
-        ,"-":"ABCDEFGB-[#!@" + STOP_CHAR + "()"
-        ,"[":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"]":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
-        ,"@":"ABCDEFG+-[#!@" + STOP_CHAR + "()"
+         "A":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
+        ,"B":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
+        ,"C":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"D":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
+        ,"E":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"F":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
+        ,"G":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
+        ,"+":"ABCDEFG+A[+D@" + STOP_CHAR + "+-]"
+        ,"-":"ABCDEFGB-[C-@" + STOP_CHAR + "]-"
+        ,"[":"+-+-EFG+-[+-@" + STOP_CHAR + "+-"
+        ,"]":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"@":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
     }
 
     available_chars = RULE_CHARS[:num_of_chars]
@@ -196,8 +202,8 @@ def pushdown_parser_6op(digest):
 
     stack = 0
     rules = {}
-    state = 'A'
     for idx, char in enumerate(available_chars):
+        state = '.'
         rule = ""
         for i in range(min(RULE_SIZE_MAX,partition_size)):
             current_nibble = rule_nibbles[idx * partition_size + i]
@@ -219,6 +225,7 @@ def pushdown_parser_6op(digest):
         
         rule += ']' * stack #pop the rest of the stack
         rules[char] = rule
+        stack = 0
 
     #NOTE: When debugging, stack MUST be zero here
 
@@ -227,7 +234,7 @@ def pushdown_parser_6op(digest):
     seed_nibbles = bytes_to_nibbles(digest[30:])
     seed = "".join(available_chars[nib % num_of_chars] for nib in seed_nibbles) #TODO: this means all plants start as a long stick. Need something more complex
 
-    return rules, seed
+    return rules, seed, flower_color
 
 
 def pushdown_parser_full(digest):
@@ -263,11 +270,12 @@ def plant_from_file(fname):
                 val = l[1].strip().replace(".","")
                 rules[key] = val
             seed = f.readline().strip()
-        return rules, seed
+            color = f.readline().strip()
+        return rules, seed, color
     except Exception as e:
         print(f"Could not read from file: {e}")
         print("Check to make sure the file exists and is not malformed")
-        return None, None
+        return None, None, None
 
 def speed_up():
     t.speed("fastest")
@@ -284,6 +292,21 @@ def zoom_in():
 def zoom_out():
     width, height = win.screensize()
     win.screensize(width * 1.5, height * 1.5)
+
+def produce_test_rand_plant():
+    user_input = input("Put something: ")
+    hasher = hashlib.sha256()
+    hasher.update(user_input.encode('utf-8'))
+
+    digest = hasher.digest()
+
+    rules, seed, flower_color = pushdown_parser_6op(digest)
+
+    print("Rules: \n" + str(rules))
+    print("Seed: " + seed)
+    print("Color: " + flower_color)
+    
+    return LSystem(rules, seed, 1, flower_color)
 
 def main(scale, depth, win : t._Screen):
     test_mapping = {
@@ -305,8 +328,8 @@ def main(scale, depth, win : t._Screen):
     special_seed = 'F'
 
 
-    l1 = LSystem(test_mapping, test_seed, 1)
-    l2 = LSystem(special_test_mapping, special_seed, 1)
+    l2 = produce_test_rand_plant()
+    #l2 = LSystem(special_test_mapping, special_seed, 1)
 
     win.onkey(l2.reset_and_advance, "Return")
     win.onkey(speed_up, "Up")

@@ -8,6 +8,8 @@ M : MMM
 @ : 
 
 F
+#FFFFFF
 The first several lines define the rewriting rules, in a "Character : rewrite" format
 An empty line signals the next line is the seed
-Lines below the seed (like this one) are ignored
+Next, the color
+Lines below the color (like this one) are ignored
