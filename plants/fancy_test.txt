@@ -1,0 +1,13 @@
+F : XY[++G][--G][G]
+G : XX[++G@][--G@][G@]
+X : XX
+Y : YZ
+Z : [++++L][----L]X
+L : MM[+++L][---L]L
+M : MMM
+@ : 
+
+F
+The first several lines define the rewriting rules, in a "Character : rewrite" format
+An empty line signals the next line is the seed
+Lines below the seed (like this one) are ignored

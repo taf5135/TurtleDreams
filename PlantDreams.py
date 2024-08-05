@@ -253,6 +253,22 @@ def rectify_transition(tran, available_chars): #TODO maybe refactor this
 
     return tran
 
+def plant_from_file(fname):
+    try:
+        with open(fname, 'r') as f:
+            rules = {}
+            while (line := f.readline().strip()) != "":
+                l = line.split(":")
+                key = l[0].strip()
+                val = l[1].strip().replace(".","")
+                rules[key] = val
+            seed = f.readline().strip()
+        return rules, seed
+    except Exception as e:
+        print(f"Could not read from file: {e}")
+        print("Check to make sure the file exists and is not malformed")
+        return None, None
+
 def speed_up():
     t.speed("fastest")
     t.tracer(0,0)
