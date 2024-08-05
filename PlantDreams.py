@@ -30,13 +30,14 @@ import turtle as t
 #We need to reduce this down to 16. By specifically crafting the pushdown machine to disallow certain transitions, we can force this number down
 #But we need to reduce it for every possible character, which is difficult.
 
-#Let's cut out the multiply and divide instructions, since theyre kind of boring and probably won't lead to interesting phenomena
-#We also make sure that after any non-letter operation, we disallow its negation. So - cant follow +, ] cant follow [, etc. This gets us down to 16 transitions for each
-#state, except for the letters. TODO figure out the problem for the letters
-
 #The 32 bytes: first 3 bits control the number of chars. The next 5 bits control the flower color. The remaining 62 nibbles are processed by the pushdown automata
 #We allow for early stopping. 
 #Leftover nibbles define the seed. We remove all functional (non-letter) characters that are outside of square brackets
+
+#POSSIBLE DESIGN OVERHAUL: (test '&' inclusion before you do it)
+#We can try to compromise between "each nibble directly determines the next character" and "each byte just selects a good prebuilt rule"
+#by having each nibble map to a sequence instead of a single character
+#ex: 0000 maps to AB, 0001 to A[+B], 0010 to A[-B], 0011 to BB-A
 
 #For a full feature set of 13 possible actions, we will need to allocate ~4 bits to each character. 
 #
@@ -49,8 +50,6 @@ Library of actions:
    ]	         Pop current drawing state from the stack
 
 Ones below here are secondary features, to be implemented at your convenience:
-   #	         Increment the line width by line width increment
-   !	         Decrement the line width by line width increment
    @	         Draw a dot with line width radius
    &	         Swap the meaning of + and -
    (	         Decrement turning angle by turning angle increment
@@ -61,8 +60,7 @@ BASE_LENGTH = 10
 BASE_ANGLE = 30
 BASE_FLOWER_RAD = 2
 
-ANGLE_INCREMENT = 0
-WIDTH_INCREMENT = 0
+ANGLE_INCREMENT = 4
 
 RULE_CHARS = "ABCDEFG"
 START_CHAR = "." #Special character to signal we're in the start state
@@ -105,18 +103,19 @@ class LSystem():
     
     def draw_state(self):
         swap_const = 1
+        turning_modifier = 0
         stack = []
         for char in self.state:
             if char == '+':
-                t.left(BASE_ANGLE * swap_const)
+                t.left((BASE_ANGLE + turning_modifier) * swap_const)
             elif char == '-':
-                t.right(BASE_ANGLE * swap_const)
+                t.right((BASE_ANGLE + turning_modifier) * swap_const)
             elif char == '[':
                 #needs to save position and direction on the stack
-                stack.append((t.heading(), t.pos(), swap_const))
+                stack.append((t.heading(), t.pos(), swap_const, turning_modifier))
             elif char == ']':
                 t.penup()
-                head, pos, swap_const = stack.pop() #If we add angle inc/dec, width inc/dec, flower color, or &, then we need to update the stack construction
+                head, pos, swap_const, turning_modifier = stack.pop() #If we add angle inc/dec, width inc/dec, flower color, or &, then we need to update the stack construction
                 t.setheading(head)
                 t.goto(pos)
                 t.pendown()
@@ -128,6 +127,10 @@ class LSystem():
                 t.color(0.3, 0.5, 0.2) #TODO change these colors, dont bother using floats
             elif char == '&':
                 swap_const = -swap_const
+            elif char == '(':
+                turning_modifier -= ANGLE_INCREMENT
+            elif char == ')':
+                turning_modifier += ANGLE_INCREMENT
             else:
                 t.forward(BASE_LENGTH/self.scale)
 
@@ -141,7 +144,8 @@ class LSystem():
 
 #TODO so far this produces a lot of filamentous, snaggly plants. How can we promote branching? 
 #TODO so far the plants tend to curl a lot in one direction, and spiral after only a few generations. How can we make them grow straight-ish? Will & work?
-def pushdown_parser_6op(digest):
+#Do we need to make + and - only possible inside square brackets?
+def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
 
     #first 3 bits decide how many mapped characters there will be. Minimum 2, max 7
@@ -161,38 +165,9 @@ def pushdown_parser_6op(digest):
 
     #represents a transition matrix
     #since the stack is only relevant to one character, we can use this to simplify the code
-    #TODO may need to change this later if we want more complex behavior (e.g only writing ] if we have written a rule char)
+    #TODO may need to change this later if we want more complex behavior (e.g only writing ] if we have already written a rule char)
     
-    empty_stack_transitions = {
-         "."    :   "ABCDEFGAB[CD@" + STOP_CHAR + "FG"
-        ,"A"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"B"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"C"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"D"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"E"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"F"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"G"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
-        ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
-        ,"]"    :   "ABCD[[[+-[+-@" + STOP_CHAR + "+-"
-        ,"@"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-
-    }
-
-    nonempty_transitions = {
-         "A":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
-        ,"B":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
-        ,"C":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"D":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
-        ,"E":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"F":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
-        ,"G":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
-        ,"+":"ABCDEFG+A[+D@" + STOP_CHAR + "+-]"
-        ,"-":"ABCDEFGB-[C-@" + STOP_CHAR + "]-"
-        ,"[":"+-+-EFG+-[+-@" + STOP_CHAR + "+-"
-        ,"]":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"@":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-    }
+    
 
     available_chars = RULE_CHARS[:num_of_chars]
 
@@ -227,18 +202,12 @@ def pushdown_parser_6op(digest):
         rules[char] = rule
         stack = 0
 
-    #NOTE: When debugging, stack MUST be zero here
-
     #remaining nibbles define the seed
     #TODO this is kind of duplicated code
     seed_nibbles = bytes_to_nibbles(digest[30:])
     seed = "".join(available_chars[nib % num_of_chars] for nib in seed_nibbles) #TODO: this means all plants start as a long stick. Need something more complex
 
     return rules, seed, flower_color
-
-
-def pushdown_parser_full(digest):
-    pass
 
 def bytes_to_nibbles(in_bytes):
     n = []
@@ -248,6 +217,7 @@ def bytes_to_nibbles(in_bytes):
     return n
 
 def rectify_transition(tran, available_chars): #TODO maybe refactor this
+    newtran = {}
     for key in tran.keys():
         rule = tran[key]
         newrule = ""
@@ -256,9 +226,9 @@ def rectify_transition(tran, available_chars): #TODO maybe refactor this
             if char in RULE_CHARS and char not in available_chars:
                 replacement = available_chars[RULE_CHARS.index(char) % len(available_chars)] #maps rule chars to available chars based on their index mod num_of_chars
             newrule += replacement
-        tran[key] = newrule
+        newtran[key] = newrule
 
-    return tran
+    return newtran
 
 def plant_from_file(fname):
     try:
@@ -300,7 +270,38 @@ def produce_test_rand_plant():
 
     digest = hasher.digest()
 
-    rules, seed, flower_color = pushdown_parser_6op(digest)
+    empty_stack_transitions_6op = {
+         "."    :   "ABCDEFGAB[CD@" + STOP_CHAR + "FG"
+        ,"A"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"B"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"C"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"D"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"E"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"F"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"G"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
+        ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
+        ,"]"    :   "ABCD[[[+-[+-@" + STOP_CHAR + "+-"
+        ,"@"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+
+    }
+
+    nonempty_transitions_6op = {
+         "A":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
+        ,"B":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
+        ,"C":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"D":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
+        ,"E":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
+        ,"F":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
+        ,"G":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
+        ,"+":"ABCDEFG+A[+D@" + STOP_CHAR + "+-]"
+        ,"-":"ABCDEFGB-[C-@" + STOP_CHAR + "]-"
+        ,"[":"+-+-EFG+-[+-@" + STOP_CHAR + "+-"
+        ,"]":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"@":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+    }
+
+    rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_6op, nonempty_transitions_6op)
 
     print("Rules: \n" + str(rules))
     print("Seed: " + seed)
