@@ -39,6 +39,8 @@ import turtle as t
 #by having each nibble map to a sequence instead of a single character
 #ex: 0000 maps to AB, 0001 to A[+B], 0010 to A[-B], 0011 to BB-A
 
+#We want to promote branching, promote growing mostly upwards, and 
+
 #For a full feature set of 13 possible actions, we will need to allocate ~4 bits to each character. 
 #
 """
@@ -48,8 +50,6 @@ Library of actions:
    -	         Turn right by turning angle
    [	         Push current drawing state onto stack
    ]	         Pop current drawing state from the stack
-
-Ones below here are secondary features, to be implemented at your convenience:
    @	         Draw a dot with line width radius
    &	         Swap the meaning of + and -
    (	         Decrement turning angle by turning angle increment
@@ -59,6 +59,7 @@ Ones below here are secondary features, to be implemented at your convenience:
 BASE_LENGTH = 10
 BASE_ANGLE = 30
 BASE_FLOWER_RAD = 2
+FLOWERS_ONLY_AT_TIP = False #TODO make this configurable
 
 ANGLE_INCREMENT = 4
 
@@ -101,7 +102,7 @@ class LSystem():
         self.state = nstate
         return nstate
     
-    def draw_state(self):
+    def draw_state(self): #TODO maybe optimize this. Could probably be made faster
         swap_const = 1
         turning_modifier = 0
         stack = []
@@ -142,9 +143,13 @@ class LSystem():
         self.draw_state()
 
 
-#TODO so far this produces a lot of filamentous, snaggly plants. How can we promote branching? 
-#TODO so far the plants tend to curl a lot in one direction, and spiral after only a few generations. How can we make them grow straight-ish? Will & work?
-#Do we need to make + and - only possible inside square brackets?
+#TODO we've solved the "only produces long filamentous plants" problem in 6op, but now we see a lot of tumbleweeds.
+#Suppressing turns outside of square brackets helps a lot with this, but we still have some appear.
+#Also, tumbleweeds still happen when there are too many stack things. But this might be okay
+#Good strings for this push in 6op are "plance" and "policeman". "istg" is also good, as are "soda", "oranges", "hatchback", "8 track".
+#Bad strings include "tumbleweed", "obamna", "abcdefg", "gatsby", and "i wish"
+#make sure the names of your friends produce good results.
+#Fascinating: "cris" makes a tree structure and "BadApple" makes a kind of two-lobed tumbleweed
 def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
 
@@ -162,12 +167,6 @@ def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     rule_nibbles = bytes_to_nibbles(digest[1:30])
     
     partition_size = 58 // num_of_chars
-
-    #represents a transition matrix
-    #since the stack is only relevant to one character, we can use this to simplify the code
-    #TODO may need to change this later if we want more complex behavior (e.g only writing ] if we have already written a rule char)
-    
-    
 
     available_chars = RULE_CHARS[:num_of_chars]
 
@@ -270,38 +269,80 @@ def produce_test_rand_plant():
 
     digest = hasher.digest()
 
+    #represents a transition matrix
+    #since the stack is only relevant to one character, we can use this to simplify the code
     empty_stack_transitions_6op = {
-         "."    :   "ABCDEFGAB[CD@" + STOP_CHAR + "FG"
-        ,"A"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"B"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"C"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"D"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"E"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"F"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"G"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+         "."    :   "ABCDEFGAB[[[[DFG"
+        ,"A"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
+        ,"B"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
+        ,"C"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
+        ,"D"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
+        ,"E"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
+        ,"F"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
+        ,"G"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
         ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
         ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
-        ,"]"    :   "ABCD[[[+-[+-@" + STOP_CHAR + "+-"
-        ,"@"    :   "ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+        ,"]"    :   "ABCD[[[@@[EF@" + STOP_CHAR + "G["
+        ,"@"    :   "ABCDEFG[[[EFG" + STOP_CHAR + "+-"
 
     }
 
     nonempty_transitions_6op = {
-         "A":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
-        ,"B":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
-        ,"C":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"D":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
-        ,"E":"ABCDEFG+-[+-@" + STOP_CHAR + "[-"
-        ,"F":"ABCDEFG+-[+-@" + STOP_CHAR + "+]"
-        ,"G":"ABCDEFG+-[+-@" + STOP_CHAR + "]-"
-        ,"+":"ABCDEFG+A[+D@" + STOP_CHAR + "+-]"
-        ,"-":"ABCDEFGB-[C-@" + STOP_CHAR + "]-"
-        ,"[":"+-+-EFG+-[+-@" + STOP_CHAR + "+-"
-        ,"]":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
-        ,"@":"ABCDEFG+-[+-@" + STOP_CHAR + "+-"
+         "A"    :   "ABCDEFG+-[]A@" + STOP_CHAR + "]-"
+        ,"B"    :   "ABCDE-G+-[]B@" + STOP_CHAR + "+]"
+        ,"C"    :   "ABCD+FG+-[]C@" + STOP_CHAR + "[-"
+        ,"D"    :   "ABC-EFG+-[]D@" + STOP_CHAR + "+]"
+        ,"E"    :   "AB+DEFG+-[]E@" + STOP_CHAR + "[-"
+        ,"F"    :   "A-CDEFG+-[]F@" + STOP_CHAR + "+]"
+        ,"G"    :   "+BCDEFG+-[]G@" + STOP_CHAR + "]-"
+        ,"+"    :   "ABCDEFG+A[BD@E+F"
+        ,"-"    :   "ABCDEFGB-[CD@FG-"
+        ,"["    :   "+-+-+-C+-[+-+-+-"
+        ,"]"    :   "ABCD[[[]-[+-@" + STOP_CHAR + "[]"
+        ,"@"    :   "AB]]]]G+-[+--" + STOP_CHAR + "+-"
+    }
+
+    empty_stack_transitions_full = {
+         "."    :   "ABCDEFGAB[[[[DFG"
+        ,"A"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+[" 
+        ,"B"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
+        ,"C"    :   "ABCDEFG[[[[[-" + STOP_CHAR + "+["
+        ,"D"    :   "ABCDEFG[[[[[+" + STOP_CHAR + "[-"
+        ,"E"    :   "ABCDEFG[[[[[-" + STOP_CHAR + "+["
+        ,"F"    :   "ABCDEFG[[[[[+" + STOP_CHAR + "[-"
+        ,"G"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
+        ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
+        ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
+        ,"]"    :   "ABCD[[[@@[EF@" + STOP_CHAR + "G["
+        ,"@"    :   "ABCDEFG[[[EFG" + STOP_CHAR + "+-"
+        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above
+        ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(@"
+        ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "@)"
+
+    }
+
+    nonempty_transitions_full = {
+         "A"    :   "ABCDEFG+-[]A@" + STOP_CHAR + "]-"
+        ,"B"    :   "ABCDEFG+-[]B@" + STOP_CHAR + "+]"
+        ,"C"    :   "ABCDEFG+-[]C@" + STOP_CHAR + "[-"
+        ,"D"    :   "ABCDEFG+-[]D@" + STOP_CHAR + "+]"
+        ,"E"    :   "ABCDEFG+-[]E@" + STOP_CHAR + "[-"
+        ,"F"    :   "ABCDEFG+-[]F@" + STOP_CHAR + "+]"
+        ,"G"    :   "ABCDEFG+-[]G@" + STOP_CHAR + "]-"
+        ,"+"    :   "ABCDEFG+A[BD@E+F"
+        ,"-"    :   "ABCDEFGB-[CD@FG-"
+        ,"["    :   "+-+-+-C+-[+-+-+-"
+        ,"]"    :   "ABCD[[[]-[+-@" + STOP_CHAR + "[]"
+        ,"@"    :   "AB]]]]G+-[+-@" + STOP_CHAR + "+-"
+        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above
+        ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(E"
+        ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "F)"
     }
 
     rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_6op, nonempty_transitions_6op)
+
+    if FLOWERS_ONLY_AT_TIP:
+        rules['@'] = ''
 
     print("Rules: \n" + str(rules))
     print("Seed: " + seed)
@@ -310,24 +351,6 @@ def produce_test_rand_plant():
     return LSystem(rules, seed, 1, flower_color)
 
 def main(scale, depth, win : t._Screen):
-    test_mapping = {
-         'X' : 'XX'
-        ,'Y' : 'X[-Y][+Y]'
-    }
-    test_seed = 'Y'
-
-    special_test_mapping = {
-         'F' : 'XY[++G][--G][G]' 
-        ,'G' : 'XX[++G@][--G@][G@]'
-        ,'X' : 'XX'
-        ,'Y' : 'YZ'
-        ,'Z' : '[++++L][----L]X'
-        ,'L' : 'MM[+++L][---L]L'
-        ,'M' : 'MMM'
-        ,'@' : ''
-    }
-    special_seed = 'F'
-
 
     l2 = produce_test_rand_plant()
     #l2 = LSystem(special_test_mapping, special_seed, 1)
