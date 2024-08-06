@@ -59,7 +59,7 @@ Library of actions:
 BASE_LENGTH = 10
 BASE_ANGLE = 30
 BASE_FLOWER_RAD = 2
-FLOWERS_ONLY_AT_TIP = False #TODO make this configurable
+FLOWERS_ONLY_AT_TIP = False
 
 ANGLE_INCREMENT = 4
 
@@ -79,10 +79,13 @@ COLORS = [
     "#EE9EFF", "#FFC587", "#F9D8FF", "#FFF2CE"
 ]
 
+BG_COLOR = "#E6D4B2"
+STEM_COLOR = "#4C8033"
+
 given_speed = 6
 
 class LSystem():
-    def __init__(self, mapping : dict, seed : str, scale : float, color : str = "#FFFFFF") -> None:
+    def __init__(self, mapping : dict, seed : str, scale : float = 1, color : str = "#FFFFFF") -> None:
         self.mapping = mapping
         self.seed = seed
         self.state = seed
@@ -116,7 +119,7 @@ class LSystem():
                 stack.append((t.heading(), t.pos(), swap_const, turning_modifier))
             elif char == ']':
                 t.penup()
-                head, pos, swap_const, turning_modifier = stack.pop() #If we add angle inc/dec, width inc/dec, flower color, or &, then we need to update the stack construction
+                head, pos, swap_const, turning_modifier = stack.pop()
                 t.setheading(head)
                 t.goto(pos)
                 t.pendown()
@@ -125,7 +128,7 @@ class LSystem():
                 t.begin_fill()
                 t.circle(BASE_FLOWER_RAD)
                 t.end_fill()
-                t.color(0.3, 0.5, 0.2) #TODO change these colors, dont bother using floats
+                t.color(STEM_COLOR)
             elif char == '&':
                 swap_const = -swap_const
             elif char == '(':
@@ -146,10 +149,10 @@ class LSystem():
 #TODO we've solved the "only produces long filamentous plants" problem in 6op, but now we see a lot of tumbleweeds.
 #Suppressing turns outside of square brackets helps a lot with this, but we still have some appear.
 #Also, tumbleweeds still happen when there are too many stack things. But this might be okay
-#Good strings for this push in 6op are "plance" and "policeman". "istg" is also good, as are "soda", "oranges", "hatchback", "8 track".
-#Bad strings include "tumbleweed", "obamna", "abcdefg", "gatsby", and "i wish"
-#make sure the names of your friends produce good results.
-#Fascinating: "cris" makes a tree structure and "BadApple" makes a kind of two-lobed tumbleweed
+#Tall strings for this push in 6op are "plance" and "policeman". "istg" is also good, as are "soda", "oranges", "hatchback", "8 track".
+#Tumbleweed strings include "tumbleweed", "obamna", "abcdefg", "gatsby", and "i wish"
+#make sure the names of your friends produce good results. (turns out they like them anyway)
+#Fascinating: "cris" makes a tree structure and "BadApple" makes a kind of two-lobed tumbleweed. "robin" makes a tree
 def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
 
@@ -202,9 +205,8 @@ def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
         stack = 0
 
     #remaining nibbles define the seed
-    #TODO this is kind of duplicated code
     seed_nibbles = bytes_to_nibbles(digest[30:])
-    seed = "".join(available_chars[nib % num_of_chars] for nib in seed_nibbles) #TODO: this means all plants start as a long stick. Need something more complex
+    seed = "".join(available_chars[nib % num_of_chars] for nib in seed_nibbles)
 
     return rules, seed, flower_color
 
@@ -229,7 +231,18 @@ def rectify_transition(tran, available_chars): #TODO maybe refactor this
 
     return newtran
 
-def plant_from_file(fname):
+def plant_to_file(fname : str, lsys : LSystem): #TODO test this
+    try:
+        with open(fname, 'w') as f:
+            for key in lsys.mapping.keys():
+                f.write(f"{key} : {lsys.mapping[key]}\n")
+            f.write("\n")
+            f.write(f"{lsys.seed}\n")
+            f.write(f"#{lsys.color}")
+    except Exception as e:
+        print(f"Could not dump to file: {e}")
+
+def plant_from_file(fname : str):
     try:
         with open(fname, 'r') as f:
             rules = {}
@@ -262,8 +275,7 @@ def zoom_out():
     width, height = win.screensize()
     win.screensize(width * 1.5, height * 1.5)
 
-def produce_test_rand_plant():
-    user_input = input("Put something: ")
+def produce_system_from_string(user_input, use_simple_parser=False):
     hasher = hashlib.sha256()
     hasher.update(user_input.encode('utf-8'))
 
@@ -306,16 +318,16 @@ def produce_test_rand_plant():
          "."    :   "ABCDEFGAB[[[[DFG"
         ,"A"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+[" 
         ,"B"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
-        ,"C"    :   "ABCDEFG[[[[[-" + STOP_CHAR + "+["
-        ,"D"    :   "ABCDEFG[[[[[+" + STOP_CHAR + "[-"
-        ,"E"    :   "ABCDEFG[[[[[-" + STOP_CHAR + "+["
-        ,"F"    :   "ABCDEFG[[[[[+" + STOP_CHAR + "[-"
+        ,"C"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
+        ,"D"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
+        ,"E"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
+        ,"F"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
         ,"G"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
         ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
         ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
         ,"]"    :   "ABCD[[[@@[EF@" + STOP_CHAR + "G["
         ,"@"    :   "ABCDEFG[[[EFG" + STOP_CHAR + "+-"
-        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above
+        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above and modify below
         ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(@"
         ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "@)"
 
@@ -323,23 +335,26 @@ def produce_test_rand_plant():
 
     nonempty_transitions_full = {
          "A"    :   "ABCDEFG+-[]A@" + STOP_CHAR + "]-"
-        ,"B"    :   "ABCDEFG+-[]B@" + STOP_CHAR + "+]"
-        ,"C"    :   "ABCDEFG+-[]C@" + STOP_CHAR + "[-"
-        ,"D"    :   "ABCDEFG+-[]D@" + STOP_CHAR + "+]"
-        ,"E"    :   "ABCDEFG+-[]E@" + STOP_CHAR + "[-"
-        ,"F"    :   "ABCDEFG+-[]F@" + STOP_CHAR + "+]"
-        ,"G"    :   "ABCDEFG+-[]G@" + STOP_CHAR + "]-"
+        ,"B"    :   "ABCDE-G+-[]B@" + STOP_CHAR + "+]"
+        ,"C"    :   "ABCD+FG+-[]C@" + STOP_CHAR + "[-"
+        ,"D"    :   "ABC-EFG+-[]D@" + STOP_CHAR + "+]"
+        ,"E"    :   "AB+DEFG+-[]E@" + STOP_CHAR + "[-"
+        ,"F"    :   "A-CDEFG+-[]F@" + STOP_CHAR + "+]"
+        ,"G"    :   "+BCDEFG+-[]G@" + STOP_CHAR + "]-"
         ,"+"    :   "ABCDEFG+A[BD@E+F"
         ,"-"    :   "ABCDEFGB-[CD@FG-"
         ,"["    :   "+-+-+-C+-[+-+-+-"
         ,"]"    :   "ABCD[[[]-[+-@" + STOP_CHAR + "[]"
-        ,"@"    :   "AB]]]]G+-[+-@" + STOP_CHAR + "+-"
+        ,"@"    :   "AB]]]]G+-[+--" + STOP_CHAR + "+-"
         ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above
         ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(E"
         ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "F)"
     }
 
-    rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_6op, nonempty_transitions_6op)
+    if use_simple_parser:
+        rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_6op, nonempty_transitions_6op)
+    else:
+        rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_full, nonempty_transitions_full)
 
     if FLOWERS_ONLY_AT_TIP:
         rules['@'] = ''
@@ -350,20 +365,36 @@ def produce_test_rand_plant():
     
     return LSystem(rules, seed, 1, flower_color)
 
-def main(scale, depth, win : t._Screen):
+def main(args, win : t._Screen):
 
-    l2 = produce_test_rand_plant()
-    #l2 = LSystem(special_test_mapping, special_seed, 1)
+    scale = args.scale
+    depth = args.depth
 
-    win.onkey(l2.reset_and_advance, "Return")
+    if args.read:
+        lsys = plant_from_file(args.read) #TODO test all these different configs
+    elif args.genstring:
+        lsys = produce_system_from_string(args.genstring)
+    else:
+        lsys = produce_system_from_string(input("Input generation string: "))
+
+    if args.dumpto:
+        plant_to_file(args.dumpto, lsys)
+
+    lsys.scale = scale
+
+    t.left(90) #grow upwards
+    win.screensize(3000, 2000)
+
+    if depth is not None:
+        for _ in range(depth):
+            lsys.get_next_state()
+        lsys.draw_state()
+
+    win.onkey(lsys.reset_and_advance, "Return")
     win.onkey(speed_up, "Up")
     win.onkey(speed_down, "Down")
     win.onkey(zoom_in, "-")
     win.onkey(zoom_out, "+")
-    
-
-    t.left(90) #grow upwards
-    win.screensize(3000, 2000)
 
     win.listen()
     win.mainloop()
@@ -377,14 +408,25 @@ if __name__ == '__main__':
     parser.add_argument("--scale", "-c", help="Custom scale factor for the drawing. Line length = default size/scale factor. Default 1", type=float, default=1)
     parser.add_argument("--depth", "-d", help="Jump to a depth immediately instead of showing each growth stage", type=int)
 
+    parser.add_argument("--read", "-r", help="Specify a plant file to read and draw instead of accepting input from stdin", type=str)
+    parser.add_argument("--dumpto", "-t", help="Write the generated ruleset, seed, and color to a file", type=str)
+    parser.add_argument("--tipflowers", "-f", help="Flowers last only for the generation that produced them. Default false", action="store_true")
+    parser.add_argument("--simple", "-p", help="Use simple (6-operation) parser", action="store_true")
+    parser.add_argument("--genstring", "-g", help="Generation string to use instead of asking stdin. Use quotation marks for a longer input")
+    #TODO write paper in LaTeX about the design and process
+    #TODO save interesting plants to files
+    #TODO maybe make some custom ones as well, like a queen anne's lace
+
     args = parser.parse_args()
+
+    FLOWERS_ONLY_AT_TIP = args.tipflowers
 
     try:
         win = t.Screen()
         win.title("PlantDreams")
-        win.bgcolor(0.9, 0.83, 0.7) #TODO change these, theyre just copied from computerphile
+        win.bgcolor(BG_COLOR)
         win.screensize(3000, 2000)
-        t.color(0.3, 0.5, 0.2)
+        t.color(STEM_COLOR)
 
         if args.speed == -1:
             t.tracer(0, 0)
@@ -393,7 +435,7 @@ if __name__ == '__main__':
             given_speed = min(10, max(0, args.speed))
             t.speed(given_speed)
     
-        main(args.scale, args.depth, win)
+        main(args, win)
 
     except t.Terminator:
         pass #Don't show error if user closes window prematurely
