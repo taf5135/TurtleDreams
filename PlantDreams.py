@@ -219,13 +219,13 @@ def bytes_to_nibbles(in_bytes):
 
 def rectify_transition(tran, available_chars): #TODO maybe refactor this
     newtran = {}
-    for key in tran.keys():
+    for key in tran.keys(): #maps rule chars to available chars based on their index % num_of_chars
         rule = tran[key]
         newrule = ""
         for char in rule:
             replacement = char
             if char in RULE_CHARS and char not in available_chars:
-                replacement = available_chars[RULE_CHARS.index(char) % len(available_chars)] #maps rule chars to available chars based on their index mod num_of_chars
+                replacement = available_chars[RULE_CHARS.index(char) % len(available_chars)] 
             newrule += replacement
         newtran[key] = newrule
 
@@ -275,7 +275,7 @@ def zoom_out():
     width, height = win.screensize()
     win.screensize(width * 1.5, height * 1.5)
 
-def produce_system_from_string(user_input, use_simple_parser=False):
+def produce_system_from_string(user_input, use_full_parser=False):
     hasher = hashlib.sha256()
     hasher.update(user_input.encode('utf-8'))
 
@@ -316,45 +316,45 @@ def produce_system_from_string(user_input, use_simple_parser=False):
 
     empty_stack_transitions_full = {
          "."    :   "ABCDEFGAB[[[[DFG"
-        ,"A"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+[" 
-        ,"B"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
-        ,"C"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
-        ,"D"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
-        ,"E"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
-        ,"F"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "[-"
-        ,"G"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "+["
-        ,"+"    :   "ABCDEFG+A[+D@" + STOP_CHAR + "+["
-        ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
-        ,"]"    :   "ABCD[[[@@[EF@" + STOP_CHAR + "G["
-        ,"@"    :   "ABCDEFG[[[EFG" + STOP_CHAR + "+-"
-        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above and modify below
+        ,"A"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "&)" 
+        ,"B"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "(&"
+        ,"C"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "&)"
+        ,"D"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "(&"
+        ,"E"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "&)"
+        ,"F"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "(&"
+        ,"G"    :   "ABCDEFG[[[[[@" + STOP_CHAR + "&)"
+        ,"+"    :   "ABCDEFG+A[+[@" + STOP_CHAR + "(&"
+        ,"-"    :   "ABCDEFGB-[C[@" + STOP_CHAR + "&)"
+        ,"]"    :   "ABCD[[[@@[E[@" + STOP_CHAR + "(&"
+        ,"@"    :   "ABCDEFG[[[E[G" + STOP_CHAR + "&)"
+        ,"&"    :   "ABCDEFG+-[[-@" + STOP_CHAR + "()" 
         ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(@"
-        ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "@)"
+        ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "@)" 
 
     }
 
     nonempty_transitions_full = {
-         "A"    :   "ABCDEFG+-[]A@" + STOP_CHAR + "]-"
-        ,"B"    :   "ABCDE-G+-[]B@" + STOP_CHAR + "+]"
-        ,"C"    :   "ABCD+FG+-[]C@" + STOP_CHAR + "[-"
-        ,"D"    :   "ABC-EFG+-[]D@" + STOP_CHAR + "+]"
-        ,"E"    :   "AB+DEFG+-[]E@" + STOP_CHAR + "[-"
-        ,"F"    :   "A-CDEFG+-[]F@" + STOP_CHAR + "+]"
-        ,"G"    :   "+BCDEFG+-[]G@" + STOP_CHAR + "]-"
-        ,"+"    :   "ABCDEFG+A[BD@E+F"
-        ,"-"    :   "ABCDEFGB-[CD@FG-"
+         "A"    :   "ABCDEFG+-[]&@" + STOP_CHAR + "()"
+        ,"B"    :   "ABCDE-G+-[]&@" + STOP_CHAR + "()"
+        ,"C"    :   "ABCD+FG+-[]&@" + STOP_CHAR + "()"
+        ,"D"    :   "ABC-EFG+-[]&@" + STOP_CHAR + "()"
+        ,"E"    :   "AB+DEFG+-[]&@" + STOP_CHAR + "()"
+        ,"F"    :   "A-CDEFG+-[]&@" + STOP_CHAR + "()"
+        ,"G"    :   "+BCDEFG+-[]&@" + STOP_CHAR + "()"
+        ,"+"    :   "ABCDEFG+A[B&@E+F"
+        ,"-"    :   "ABCDEFGB-[C&@FG-"
         ,"["    :   "+-+-+-C+-[+-+-+-"
-        ,"]"    :   "ABCD[[[]-[+-@" + STOP_CHAR + "[]"
-        ,"@"    :   "AB]]]]G+-[+--" + STOP_CHAR + "+-"
-        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" #TODO redo these slightly, add &,(,) to above
+        ,"]"    :   "ABCD[[[]-[+&@" + STOP_CHAR + "[]"
+        ,"@"    :   "AB]]]]G+-[+&-" + STOP_CHAR + "+-"
+        ,"&"    :   "ABCDEFG+-[[+@" + STOP_CHAR + "()" 
         ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(E"
         ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "F)"
     }
 
-    if use_simple_parser:
-        rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_6op, nonempty_transitions_6op)
-    else:
+    if use_full_parser:
         rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_full, nonempty_transitions_full)
+    else:
+        rules, seed, flower_color = pushdown_parser(digest, empty_stack_transitions_6op, nonempty_transitions_6op)
 
     if FLOWERS_ONLY_AT_TIP:
         rules['@'] = ''
@@ -373,9 +373,9 @@ def main(args, win : t._Screen):
     if args.read:
         lsys = plant_from_file(args.read) #TODO test all these different configs
     elif args.genstring:
-        lsys = produce_system_from_string(args.genstring)
+        lsys = produce_system_from_string(args.genstring, args.full)
     else:
-        lsys = produce_system_from_string(input("Input generation string: "))
+        lsys = produce_system_from_string(input("Input generation string: "), args.full)
 
     if args.dumpto:
         plant_to_file(args.dumpto, lsys)
@@ -411,7 +411,7 @@ if __name__ == '__main__':
     parser.add_argument("--read", "-r", help="Specify a plant file to read and draw instead of accepting input from stdin", type=str)
     parser.add_argument("--dumpto", "-t", help="Write the generated ruleset, seed, and color to a file", type=str)
     parser.add_argument("--tipflowers", "-f", help="Flowers last only for the generation that produced them. Default false", action="store_true")
-    parser.add_argument("--simple", "-p", help="Use simple (6-operation) parser", action="store_true")
+    parser.add_argument("--full", "-l", help="Use full (9-operation) parser", action="store_true")
     parser.add_argument("--genstring", "-g", help="Generation string to use instead of asking stdin. Use quotation marks for a longer input")
     #TODO write paper in LaTeX about the design and process
     #TODO save interesting plants to files
