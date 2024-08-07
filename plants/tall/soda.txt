@@ -1,0 +1,8 @@
+A : [-A]@AD[+AA]
+B : D[-B@[++BEA]]
+C : ADA[+B-[-BB]]
+D : B
+E : A[--ABA-BB]
+
+DECC
+#FFB766

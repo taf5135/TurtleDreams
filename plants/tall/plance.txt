@@ -1,0 +1,8 @@
+A : A[-@-A-CB]B
+B : [+D]
+C : [-C@B+E+EA]
+D : AED[--DBDA-]
+E : D[-AEBB-D]
+
+BDBD
+#FF7FEB

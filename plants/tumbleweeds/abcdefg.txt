@@ -1,0 +1,6 @@
+A : B[-BBC+ACCCCAC-]
+B : [--AA-AAAABB-C]
+C : C[-B+CA@ACC+A][]
+
+BBAB
+#FFC587

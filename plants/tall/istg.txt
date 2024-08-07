@@ -1,0 +1,7 @@
+A : CA[-B]
+B : [++B[-C@+DB]]
+C : AAB[+C@[-C[[+B]]]]
+D : [+B+BABD+[-DB+]]
+
+DABD
+#758EFF

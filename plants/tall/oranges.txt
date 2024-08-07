@@ -1,0 +1,5 @@
+A : A[++BA]B[-BAAA-]
+B : [-B-B+AB]@AAA@[]
+
+AABB
+#FF5E5E

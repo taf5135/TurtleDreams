@@ -1,0 +1,10 @@
+A : FB[+GD-E]
+B : [-@+F[+E]]
+C : [-D]BG[-]
+D : BA[-D]@A
+E : E@E
+F : FCA[-G-D]
+G : [-C]G[-[]]
+
+EFAC
+#7D4FFF

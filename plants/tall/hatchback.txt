@@ -1,0 +1,6 @@
+A : ABA[+BA@][+CC]@
+B : AB[+C[+A][+A++A]]
+C : C[+@A]
+
+ACBC
+#D756FF

@@ -1,0 +1,6 @@
+A : A[-C[-BCACA]]A
+B : C[+CB+CABB+A+B]
+C : AA[[-A]-C-CA---]
+
+ABBA
+#5EF1FF

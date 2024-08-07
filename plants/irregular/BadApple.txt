@@ -1,0 +1,7 @@
+A : BAC[-BD[+C+B+A]]
+B : D[-C-CBAB[-C]@]
+C : [-C-BD@A+A+D]
+D : C[-CD+[+AAC[-D]]]
+
+DBBB
+#FF7FEB

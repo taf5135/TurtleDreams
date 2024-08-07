@@ -1,0 +1,10 @@
+A : D[+A]@F[]
+B : A[-D@B]
+C : [[-FF-B]]
+D : [--[++DC]]
+E : E[C@]@[+]
+F : AD[-AA[C]]
+G : [-G-D]@[]
+
+CBAF
+#8EC8FF

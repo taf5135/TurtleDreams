@@ -1,0 +1,9 @@
+A : D[CC+++D]
+B : E@F[+C]@
+C : A
+D : C[+B]F-@F
+E : [++E+DB]A
+F : FAF-[+F@A]
+
+CCDC
+#A846A0

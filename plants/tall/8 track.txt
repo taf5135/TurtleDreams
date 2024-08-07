@@ -1,0 +1,6 @@
+A : CCBC[+A]@A[-@+[]]
+B : BC[-CA-CAC[+BA+]]
+C : A[+CAA]
+
+BACA
+#FF26CC

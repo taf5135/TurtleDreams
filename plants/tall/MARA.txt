@@ -1,0 +1,10 @@
+A : [-F+A]
+B : B[-DDF-A]
+C : A[-FD@]
+D : F
+E : ADCFF[+B]
+F : B[-A+G+E]
+G : G[+AG]G@
+
+FCAE
+#FCFF54

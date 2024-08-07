@@ -1,0 +1,8 @@
+A : [-BCA][+[-B]]
+B : AE+A[-A]
+C : [[-A-[+A-AB]]]
+D : B-BDA
+E : AC
+
+AAAB
+#FF26CC

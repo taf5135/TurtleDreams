@@ -1,0 +1,8 @@
+A : [+D@]@
+B : EEB[-[C+D[C]]]
+C : AA[+[++BB--]]
+D : A[-CB[C@]]
+E : E
+
+EBDA
+#FF3DAE

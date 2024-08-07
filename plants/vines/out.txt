@@ -1,0 +1,6 @@
+A : CAA[-@A+BA]B[-C]
+B : [-C[+A]]
+C : B--C[-B]C[+@]
+
+CACC
+#9F4CFF
