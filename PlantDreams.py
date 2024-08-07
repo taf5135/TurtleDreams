@@ -126,7 +126,7 @@ class LSystem():
             elif char == '@':
                 t.color(self.color) 
                 t.begin_fill()
-                t.circle(BASE_FLOWER_RAD)
+                t.circle(BASE_FLOWER_RAD/self.scale)
                 t.end_fill()
                 t.color(STEM_COLOR)
             elif char == '&':
@@ -152,7 +152,7 @@ class LSystem():
 #Tall strings for this push in 6op are "plance" and "policeman". "istg" is also good, as are "soda", "oranges", "hatchback", "8 track".
 #Tumbleweed strings include "tumbleweed", "obamna", "abcdefg", "gatsby", and "i wish"
 #make sure the names of your friends produce good results. (turns out they like them anyway)
-#Fascinating: "cris" makes a tree structure and "BadApple" makes a kind of two-lobed tumbleweed. "robin" makes a tree
+#Fascinating: "cris" makes a tree structure and "BadApple" makes a kind of two-lobed tumbleweed. "robin" makes a tree. "kiki" and "out" make vines
 def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
 
@@ -231,14 +231,14 @@ def rectify_transition(tran, available_chars): #TODO maybe refactor this
 
     return newtran
 
-def plant_to_file(fname : str, lsys : LSystem): #TODO test this
+def plant_to_file(fname : str, lsys : LSystem):
     try:
         with open(fname, 'w') as f:
             for key in lsys.mapping.keys():
                 f.write(f"{key} : {lsys.mapping[key]}\n")
             f.write("\n")
             f.write(f"{lsys.seed}\n")
-            f.write(f"#{lsys.color}")
+            f.write(f"{lsys.color}")
     except Exception as e:
         print(f"Could not dump to file: {e}")
 
@@ -365,17 +365,18 @@ def produce_system_from_string(user_input, use_full_parser=False):
     
     return LSystem(rules, seed, 1, flower_color)
 
-def main(args, win : t._Screen):
+def main(args, win : t._Screen, gstr : str = None):
 
     scale = args.scale
     depth = args.depth
 
     if args.read:
-        lsys = plant_from_file(args.read) #TODO test all these different configs
+        rules, seed, color = plant_from_file(args.read) #TODO test all these different configs
+        lsys = LSystem(rules, seed, color=color)
     elif args.genstring:
         lsys = produce_system_from_string(args.genstring, args.full)
     else:
-        lsys = produce_system_from_string(input("Input generation string: "), args.full)
+        lsys = produce_system_from_string(gstr, args.full)
 
     if args.dumpto:
         plant_to_file(args.dumpto, lsys)
@@ -388,7 +389,9 @@ def main(args, win : t._Screen):
     if depth is not None:
         for _ in range(depth):
             lsys.get_next_state()
+        speed_up()
         lsys.draw_state()
+        speed_down()
 
     win.onkey(lsys.reset_and_advance, "Return")
     win.onkey(speed_up, "Up")
@@ -421,6 +424,10 @@ if __name__ == '__main__':
 
     FLOWERS_ONLY_AT_TIP = args.tipflowers
 
+    genstring = args.genstring
+    if not args.genstring and not args.read:
+        genstring = input("Input generation string: ")
+
     try:
         win = t.Screen()
         win.title("PlantDreams")
@@ -435,7 +442,7 @@ if __name__ == '__main__':
             given_speed = min(10, max(0, args.speed))
             t.speed(given_speed)
     
-        main(args, win)
+        main(args, win, genstring) 
 
     except t.Terminator:
         pass #Don't show error if user closes window prematurely
