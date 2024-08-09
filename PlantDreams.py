@@ -1,9 +1,12 @@
 import argparse
 import hashlib
+import re
 import turtle as t
 
 #takes an arbitrary input, hashes it, and converts the 256-bit hash into an L-system
-#then draws the L-system after a specified number of epochs
+#then draws the L-system in stages as the user dictates
+#press Up to draw instantly, Down to draw slowly. Press Enter to go to the next generation
+
 #L-system takes in a mapping of cells to cells (dict), a seed, and a number of iterations
 #at each iteration, go through the current cell list, starting with the seed, and replace each cell
 #by its mapped counterpart. 
@@ -12,11 +15,6 @@ import turtle as t
 
 #The core of the L-system is the mapping. Therefore, we should make the mapping our randomly generated
 #thing.
-
-#But first, let's try and implement one thats purely hardcoded. What operations should we support?
-#turn left, turn right, forward, dot, and some kind of curve if possible
-#"stack" behavior can be implemented as well (saving the current turtle state and returning to it later)
-#basically the stuff from https://paulbourke.net/fractals/lsys/ but with no polygons (yet?)
 
 #How will we do the randomization?
 #One option: pre-build rules that work together, then use the hash to define what gets rewritten to what
@@ -32,17 +30,8 @@ import turtle as t
 
 #The 32 bytes: first 3 bits control the number of chars. The next 5 bits control the flower color. The remaining 62 nibbles are processed by the pushdown automata
 #We allow for early stopping. 
-#Leftover nibbles define the seed. We remove all functional (non-letter) characters that are outside of square brackets
+#58 nibbles are used for rules. Leftover nibbles (4) define the seed. We remove all functional (non-letter) characters that are outside of square brackets
 
-#POSSIBLE DESIGN OVERHAUL: (test '&' inclusion before you do it)
-#We can try to compromise between "each nibble directly determines the next character" and "each byte just selects a good prebuilt rule"
-#by having each nibble map to a sequence instead of a single character
-#ex: 0000 maps to AB, 0001 to A[+B], 0010 to A[-B], 0011 to BB-A
-
-#We want to promote branching, promote growing mostly upwards, and 
-
-#For a full feature set of 13 possible actions, we will need to allocate ~4 bits to each character. 
-#
 """
 Library of actions:
    F	         Move forward by line length drawing a line. ANY character does this
@@ -105,7 +94,7 @@ class LSystem():
         self.state = nstate
         return nstate
     
-    def draw_state(self): #TODO maybe optimize this. Could probably be made faster
+    def draw_state(self):
         swap_const = 1
         turning_modifier = 0
         stack = []
@@ -146,13 +135,6 @@ class LSystem():
         self.draw_state()
 
 
-#TODO we've solved the "only produces long filamentous plants" problem in 6op, but now we see a lot of tumbleweeds.
-#Suppressing turns outside of square brackets helps a lot with this, but we still have some appear.
-#Also, tumbleweeds still happen when there are too many stack things. But this might be okay
-#Tall strings for this push in 6op are "plance" and "policeman". "istg" is also good, as are "soda", "oranges", "hatchback", "8 track".
-#Tumbleweed strings include "tumbleweed", "obamna", "abcdefg", "gatsby", and "i wish"
-#make sure the names of your friends produce good results. (turns out they like them anyway)
-#Fascinating: "cris" makes a tree structure and "BadApple" makes a kind of two-lobed tumbleweed. "robin" makes a tree. "kiki" and "out" make vines
 def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     #Runs a pushdown automata for plants with only F, +, -, [, ], and @ operations (F is 2 to 7 different characters)
 
@@ -208,7 +190,17 @@ def pushdown_parser(digest, empty_stack_transitions, nonempty_transitions):
     seed_nibbles = bytes_to_nibbles(digest[30:])
     seed = "".join(available_chars[nib % num_of_chars] for nib in seed_nibbles)
 
+    for key in rules.keys():
+        rules[key] = cleanup_rule(rules[key])
+
     return rules, seed, flower_color
+
+def cleanup_rule(rule):
+    newrule = rule
+    while newrule != re.sub(r"\[[\+\-\&\(\)]*\]", "", newrule): 
+        newrule = re.sub(r"\[[\+\-\&\(\)]*\]", "", newrule)
+
+    return re.sub(r"[\+\-\&\(\)]+\]","]",newrule) 
 
 def bytes_to_nibbles(in_bytes):
     n = []
@@ -371,7 +363,7 @@ def main(args, win : t._Screen, gstr : str = None):
     depth = args.depth
 
     if args.read:
-        rules, seed, color = plant_from_file(args.read) #TODO test all these different configs
+        rules, seed, color = plant_from_file(args.read)
         lsys = LSystem(rules, seed, color=color)
     elif args.genstring:
         lsys = produce_system_from_string(args.genstring, args.full)
@@ -417,7 +409,6 @@ if __name__ == '__main__':
     parser.add_argument("--full", "-l", help="Use full (9-operation) parser", action="store_true")
     parser.add_argument("--genstring", "-g", help="Generation string to use instead of asking stdin. Use quotation marks for a longer input")
     #TODO write paper in LaTeX about the design and process
-    #TODO save interesting plants to files
     #TODO maybe make some custom ones as well, like a queen anne's lace
 
     args = parser.parse_args()
