@@ -14,22 +14,13 @@ import turtle as t
 #for the turtle. 
 
 #The core of the L-system is the mapping. Therefore, we should make the mapping our randomly generated
-#thing.
+#thing. We hash the input using SHA-256 and convert it to rules as follows.
 
-#How will we do the randomization?
-#One option: pre-build rules that work together, then use the hash to define what gets rewritten to what
-#Option two: Have the hash build the rewriting rules, and then also have it define the mapping. This could be done as a next step to the first option
-#In order build a single rule, we could use a stack machine to decide what symbol will be written next. This allows us some fine tuning to make "good" patterns
-# more likely, such as making sure "+-" doesn't appear. It could also prevent "[[" from appearing. We will need extra logic to make sure that any "[" has a corresponding "]",
-# and vice versa
-# https://cs.rit.edu/~tjb/fsm.html has a good DFA maker that we can use to complete the steps
-
-#How many rules should be possible? 2-7 seems like a good range. That means there are, if we implement everything, 17 possible next characters inside a given mapping
-#We need to reduce this down to 16. By specifically crafting the pushdown machine to disallow certain transitions, we can force this number down
-#But we need to reduce it for every possible character, which is difficult.
-
-#The 32 bytes: first 3 bits control the number of chars. The next 5 bits control the flower color. The remaining 62 nibbles are processed by the pushdown automata
-#We allow for early stopping. 
+#A hash consists of 32 bytes, or 64 half-bytes (nibbles)
+#The first 3 bits control the number of chars, 2-7. The next 5 bits control the flower color. The remaining 62 nibbles are processed by the pushdown automata
+#The pushdown automata splits the sequence of nibbles into sections, one for each rule, and processes each section into a rewriting string
+#Based on the character just written and the height of the stack, we use the next nibble to transition into another state and write that state's character.
+#We allow for early stopping. Excess characters that do not change the appearance are optimized out (ex. AB[+-&&-] -> AB)
 #58 nibbles are used for rules. Leftover nibbles (4) define the seed. We remove all functional (non-letter) characters that are outside of square brackets
 
 """
@@ -288,7 +279,6 @@ def produce_system_from_string(user_input, use_full_parser=False):
         ,"-"    :   "ABCDEFGB-[C-@" + STOP_CHAR + "[-"
         ,"]"    :   "ABCD[[[@@[EF@" + STOP_CHAR + "G["
         ,"@"    :   "ABCDEFG[[[EFG" + STOP_CHAR + "+-"
-
     }
 
     nonempty_transitions_6op = {
@@ -322,7 +312,6 @@ def produce_system_from_string(user_input, use_full_parser=False):
         ,"&"    :   "ABCDEFG+-[[-@" + STOP_CHAR + "()" 
         ,"("    :   "ABCDEFG+-[[&@" + STOP_CHAR + "(@"
         ,")"    :   "ABCDEFG+-[[&@" + STOP_CHAR + "@)" 
-
     }
 
     nonempty_transitions_full = {
@@ -398,18 +387,15 @@ def main(args, win : t._Screen, gstr : str = None):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser("Talk to the turtle and grow a procedurally-generated plant based on your input")
+    parser = argparse.ArgumentParser("Talk to the turtle and grow a procedurally-generated plant based on your input. \nUP to speed up, DOWN to speed down, ENTER to go to next generation")
     parser.add_argument("--speed", "-s", help="Drawing speeed of the turtle. -1 for instant image generation", type=int, default=6)
     parser.add_argument("--scale", "-c", help="Custom scale factor for the drawing. Line length = default size/scale factor. Default 1", type=float, default=1)
     parser.add_argument("--depth", "-d", help="Jump to a depth immediately instead of showing each growth stage", type=int)
-
     parser.add_argument("--read", "-r", help="Specify a plant file to read and draw instead of accepting input from stdin", type=str)
     parser.add_argument("--dumpto", "-t", help="Write the generated ruleset, seed, and color to a file", type=str)
     parser.add_argument("--tipflowers", "-f", help="Flowers last only for the generation that produced them. Default false", action="store_true")
     parser.add_argument("--full", "-l", help="Use full (9-operation) parser", action="store_true")
     parser.add_argument("--genstring", "-g", help="Generation string to use instead of asking stdin. Use quotation marks for a longer input")
-    #TODO write paper in LaTeX about the design and process
-    #TODO maybe make some custom ones as well, like a queen anne's lace
 
     args = parser.parse_args()
 
